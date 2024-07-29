@@ -275,8 +275,8 @@ def main():
             st.subheader("Filter Orders by Date Range")
 
             # Display date input widgets
-            start_date = st.date_input("Start Date", value=pd.to_datetime("2023-01-01").date())
-            end_date = st.date_input("End Date", value=pd.to_datetime("2023-12-31").date())
+            start_date = pd.to_datetime(st.date_input("Start Date", value=datetime(2023, 1, 1).date())).date()
+            end_date = pd.to_datetime(st.date_input("End Date", value=datetime(2023, 12, 31).date())).date()
 
             if st.button("Confirm Date Range"):
                 # Retrieve orders_df from session state
@@ -289,14 +289,15 @@ def main():
 
                 
                 # Convert 'Created at' column to datetime, keeping only the date part
-                orders_df['Created at'] = pd.to_datetime(orders_df['Created at'], format='%Y-%m-%d %H:%M:%S %z', errors='coerce').dt.date
+                orders_df['Created at'] = orders_df['Created at'].str[:10]
+                orders_df['Created at'] = pd.to_datetime(orders_df['Created at'], errors='coerce', infer_datetime_format=True).dt.date
 
                 
                 
 
                 # Filter orders based on the selected date range
+                
                 filtered_orders_df = orders_df[(orders_df['Created at'] >= start_date) & (orders_df['Created at'] <= end_date)]
-
                 # Drop duplicates based on 'Name'
                 filtered_orders_df = filtered_orders_df.drop_duplicates(subset='Name')
 
