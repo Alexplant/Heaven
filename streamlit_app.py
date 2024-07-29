@@ -3,7 +3,7 @@ import pandas as pd
 import re
 from fuzzywuzzy import fuzz
 import base64
-
+from datetime import datetime
 def clean_zipcode(zipcode):
     zipcode = str(zipcode)
     if zipcode.startswith("'"):
@@ -275,8 +275,8 @@ def main():
             st.subheader("Filter Orders by Date Range")
 
             # Display date input widgets
-            start_date = st.date_input("Start Date", value=datetime(2023, 1, 1).date())
-            end_date = st.date_input("End Date", value=datetime(2023, 12, 31).date())
+            start_date = pd.to_datetime(st.date_input("Start Date", value=datetime(2023, 1, 1).date())).date()
+            end_date = pd.to_datetime(st.date_input("End Date", value=datetime(2023, 12, 31).date())).date()
 
             if st.button("Confirm Date Range"):
                 # Retrieve orders_df from session state
