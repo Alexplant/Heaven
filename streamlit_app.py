@@ -289,9 +289,17 @@ def main():
 
                 
                 # Convert 'Created at' column to datetime, keeping only the date part
+                st.write(orders_df['Created at'].dtype)
+                st.write(orders_df['Created at'].head())
+                orders_df['Created at'] = orders_df['Created at'].astype(str)
+                st.write(orders_df['Created at'].dtype)
+                st.write(orders_df['Created at'].head())
                 orders_df['Created at'] = orders_df['Created at'].str[:10]
+                st.write(orders_df['Created at'].dtype)
+                st.write(orders_df['Created at'].head())
                 orders_df['Created at'] = pd.to_datetime(orders_df['Created at'], errors='coerce', infer_datetime_format=True).dt.date
-
+                st.write(orders_df['Created at'].dtype)
+                st.write(orders_df['Created at'].head())
                 
                 
 
