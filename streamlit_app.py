@@ -81,7 +81,16 @@ def split_address(address):
     if street_match:
         return street_match.group(1), street_match.group(2)
     
+    # If no match, return None for street number and the full address for street name
     return None, address
+
+# Define a wrapper function to handle errors
+def safe_split_address(address, index):
+    try:
+        return pd.Series(split_address(address))
+    except Exception as e:
+        print(f"Error at index {index}: {e}")
+        return pd.Series([None, address]) 
 
 def match_columns(row, catalog_row, name_threshold=60, address_threshold=60):
     name_match = fuzz.token_sort_ratio(row['billing_name'], catalog_row['name'])
@@ -165,8 +174,31 @@ def main():
                 orders_chunk['shipping_zip'] = orders_chunk['shipping_zip'].astype(str).apply(preprocess_zipcode)
                 orders_chunk['shipping_name'] = orders_chunk['shipping_name'].apply(preprocess_text)
                 orders_chunk['shipping_address1'] = orders_chunk['shipping_address1'].apply(preprocess_text)
-                orders_chunk[['billing_street_number', 'billing_street_name']] = orders_chunk['billing_address1'].apply(lambda x: pd.Series(split_address(x)))
-                orders_chunk[['shipping_street_number', 'shipping_street_name']] = orders_chunk['shipping_address1'].apply(lambda x: pd.Series(split_address(x)))
+
+
+                billing_street_numbers = []
+                billing_street_names = []
+                shipping_street_numbers = []
+                shipping_street_names = []
+
+                # Iterate through each row to apply the safe_split_address function for billing addresses
+                for idx, address in orders_chunk['billing_address1'].items():
+                    billing_street_number, billing_street_name = safe_split_address(address, idx)
+                    billing_street_numbers.append(billing_street_number)
+                    billing_street_names.append(billing_street_name)
+
+                # Iterate through each row to apply the safe_split_address function for shipping addresses
+                for idx, address in orders_chunk['shipping_address1'].items():
+                    shipping_street_number, shipping_street_name = safe_split_address(address, idx)
+                    shipping_street_numbers.append(shipping_street_number)
+                    shipping_street_names.append(shipping_street_name)
+
+                # Assign the results back to the DataFrame
+                orders_chunk['billing_street_number'] = billing_street_numbers
+                orders_chunk['billing_street_name'] = billing_street_names
+                orders_chunk['shipping_street_number'] = shipping_street_numbers
+                orders_chunk['shipping_street_name'] = shipping_street_names
+
 
                 # Append the cleaned chunk to the list
                 cleaned_chunks.append(orders_chunk)
