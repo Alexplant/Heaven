@@ -79,7 +79,14 @@ def split_address(address):
     
     street_match = re.match(r'^(\d+)\s+(.+)', address)
     if street_match:
-        return street_match.group(1), street_match.group(2)
+        street_number = street_match.group(1)
+        street_name = street_match.group(2)
+        
+        # Final check if street number contains "box"
+        if 'box' in street_number.lower():
+            return None, address  # Treat the whole address as the street name
+        
+        return street_number, street_name
     
     # If no match, return None for street number and the full address for street name
     return None, address
@@ -247,7 +254,11 @@ def main():
             catalog_df[['street_number', 'street_name']] = catalog_df['address'].apply(lambda x: pd.Series(split_address(x)))    
             st.session_state['catalog_df'] = catalog_df
             st.success("Catalog file has been cleaned successfully!")
-            
+            catalog_to_download = catalog_df
+            csv = catalog_to_download.to_csv(index=False)
+            b64 = base64.b64encode(csv.encode()).decode()
+            href = f'<a href="data:file/csv;base64,{b64}" download="catalog_matched.csv">Download matched catalog DataFrame</a>'
+            st.markdown(href, unsafe_allow_html=True)
             
             
             
