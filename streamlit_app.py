@@ -21,32 +21,43 @@ def parse_dates(date_series, date_format):
         st.error(f"Date parsing error: {e}")
         return date_series
     
-    
+
+def remove_punctuation(text):
+    # Create a translation table that maps each punctuation character to None
+    translator = str.maketrans('', '', string.punctuation)
+    # Use the translate method to remove punctuation
+    return text.translate(translator)
+
+
+
 def apply_substitutions(address):
     substitutions = {
-        'Street': 'St',
-        'Avenue': 'Ave',
-        'Boulevard': 'Blvd',
-        'Road': 'Rd',
-        'Lane': 'Ln',
-        'Drive': 'Dr',
-        'Court': 'Ct',
-        'Parkway': 'Pkwy',
-        'Place': 'Pl',
-        'Square': 'Sq',
-        'Terrace': 'Terr',
-        'Trail': 'Trl',
-        'Apartment': 'Apt',
-        'Floor': 'Fl',
-        'Suite': 'Ste',
-        'North': 'N',
-        'South': 'S',
-        'East': 'E',
-        'West': 'W',
-        'Northeast': 'NE',
-        'Northwest': 'NW',
-        'Southeast': 'SE',
-        'Southwest': 'SW'
+        'street': 'St',
+        'avenue': 'Ave',
+        'boulevard': 'Blvd',
+        'road': 'Rd',
+        'lane': 'Ln',
+        'drive': 'Dr',
+        'court': 'Ct',
+        'parkway': 'Pkwy',
+        'place': 'Pl',
+        'square': 'Sq',
+        'terrace': 'Terr',
+        'trail': 'Trl',
+        'apartment': 'Apt',
+        'floor': 'Fl',
+        'suite': 'Ste',
+        'north': 'N',
+        'south': 'S',
+        'east': 'E',
+        'west': 'W',
+        'northeast': 'NE',
+        'northwest': 'NW',
+        'southeast': 'SE',
+        'southwest': 'SW',
+        'hollow': 'holw',
+        'circle': 'cir',
+        'curve': 'curv'
     }
 
     if isinstance(address, float) and pd.isna(address):
@@ -169,14 +180,21 @@ def main():
                     'Shipping Zip': 'shipping_zip',
                     'Discount Code': 'discount_code'
                 }, inplace=True)
-                orders_chunk['billing_address1'] = orders_chunk['billing_address1'].apply(apply_substitutions)
-                orders_chunk['shipping_address1'] = orders_chunk['shipping_address1'].apply(apply_substitutions)
-                orders_chunk['billing_zip'] = orders_chunk['billing_zip'].astype(str).apply(preprocess_zipcode)
+                
                 orders_chunk['billing_name'] = orders_chunk['billing_name'].apply(preprocess_text)
                 orders_chunk['billing_address1'] = orders_chunk['billing_address1'].apply(preprocess_text)
-                orders_chunk['shipping_zip'] = orders_chunk['shipping_zip'].astype(str).apply(preprocess_zipcode)
                 orders_chunk['shipping_name'] = orders_chunk['shipping_name'].apply(preprocess_text)
                 orders_chunk['shipping_address1'] = orders_chunk['shipping_address1'].apply(preprocess_text)
+                orders_chunk['billing_name'] = orders_chunk['billing_name'].apply(remove_punctuation)
+                orders_chunk['billing_address1'] = orders_chunk['billing_address1'].apply(remove_punctuation)
+                orders_chunk['shipping_name'] = orders_chunk['shipping_name'].apply(remove_punctuation)
+                orders_chunk['shipping_address1'] = orders_chunk['shipping_address1'].apply(remove_punctuation)
+                orders_chunk['billing_address1'] = orders_chunk['billing_address1'].apply(apply_substitutions)
+                orders_chunk['shipping_address1'] = orders_chunk['shipping_address1'].apply(apply_substitutions)
+                orders_chunk['billing_address1'] = orders_chunk['billing_address1'].apply(preprocess_text)
+                orders_chunk['shipping_address1'] = orders_chunk['shipping_address1'].apply(preprocess_text)
+                orders_chunk['billing_zip'] = orders_chunk['billing_zip'].astype(str).apply(preprocess_zipcode)
+                orders_chunk['shipping_zip'] = orders_chunk['shipping_zip'].astype(str).apply(preprocess_zipcode)
 
 
                 billing_street_numbers = []
@@ -239,6 +257,9 @@ def main():
                 # Preprocess columns
                 catalog_chunk['zip'] = catalog_chunk['zip'].astype(str).apply(preprocess_zipcode)
                 catalog_chunk['name'] = catalog_chunk['name'].apply(preprocess_text)
+                catalog_chunk['address'] = catalog_chunk['address'].apply(preprocess_text)
+                catalog_chunk['address'] = catalog_chunk['address'].apply(remove_punctuation)
+                catalog_chunk['address'] = catalog_chunk['address'].apply(apply_substitutions)
                 catalog_chunk['address'] = catalog_chunk['address'].apply(preprocess_text)
 
                 # Update catalog_df with cleaned chunk
