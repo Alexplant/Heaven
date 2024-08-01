@@ -401,7 +401,10 @@ def main():
                                 best_shipping_street_number_match = shipping_street_number_match
                                 best_row_data = row
 
-                        if best_row_data is not None:
+                        if best_row_data is not None and (
+                            best_name_match + best_billing_address_match + best_shipping_address_match +
+                            best_billing_street_number_match + best_shipping_street_number_match
+                        ) > 450:
                             catalog_df.loc[index, 'name_match'] = best_name_match
                             catalog_df.loc[index, 'billing_address_match'] = best_billing_address_match
                             catalog_df.loc[index, 'shipping_address_match'] = best_shipping_address_match
