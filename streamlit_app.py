@@ -472,7 +472,11 @@ def main():
                 catalog_df = pd.concat([catalog_df, new_catalog_df], ignore_index=True)
                 st.session_state['catalog_df'] = catalog_df
                 st.success("Matching process completed successfully!")
-
+                catalog_to_download = catalog_df
+                csv = catalog_to_download.to_csv(index=False)
+                b64 = base64.b64encode(csv.encode()).decode()
+                href = f'<a href="data:file/csv;base64,{b64}" download="catalog_matched.csv">Download matched catalog DataFrame</a>'
+                st.markdown(href, unsafe_allow_html=True)
             
             
             
