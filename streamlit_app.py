@@ -95,7 +95,7 @@ def safe_split_address(address, index):
         print(f"Error at index {index}: {e}")
         return pd.Series([None, address]) 
 
-def match_columns(row, catalog_row, name_threshold=60, address_threshold=60):
+def match_columns(row, catalog_row, name_threshold=10, address_threshold=60):
     name_match = fuzz.token_sort_ratio(row['billing_name'], catalog_row['name'])
     
     # Exact match for billing street number
@@ -519,8 +519,8 @@ def main():
                     (catalog_df['score1'] >= 80) | 
                     (catalog_df['score2'] >= 80) |
                     (catalog_df['total_score'] > 600) |
-                    ((catalog_df['name_match'] + catalog_df['shipping_address_match'] + catalog_df['shipping_street_number_match']) > 260) |
-                    ((catalog_df['name_match'] + catalog_df['billing_address_match'] + catalog_df['billing_address_match']) > 260),
+                    ((catalog_df['shipping_address_match'] + catalog_df['shipping_street_number_match']) > 193) |
+                    ((catalog_df['billing_address_match'] + catalog_df['billing_address_match']) > 193),
                     'match_status'
                 ] = 'Likely Match'
                 
