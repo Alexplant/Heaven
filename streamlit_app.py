@@ -4,6 +4,9 @@ import re
 from fuzzywuzzy import fuzz
 import base64
 from datetime import datetime
+import string
+
+
 def clean_zipcode(zipcode):
     zipcode = str(zipcode)
     if zipcode.startswith("'"):
