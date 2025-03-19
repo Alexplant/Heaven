@@ -114,7 +114,7 @@ def match_columns(row, catalog_row, name_threshold=10, address_threshold=60):
     
     # Exact match for billing street number
     if catalog_row['street_number'] and row['billing_street_number'] and catalog_row['street_number'] == row['billing_street_number']:
-        billing_street_number_match = 1
+        billing_street_number_match = 100
     else:
         billing_street_number_match = 0
     
@@ -125,8 +125,8 @@ def match_columns(row, catalog_row, name_threshold=10, address_threshold=60):
         billing_address_match = 0
     
     # Exact match for shipping street number
-    if catalog_row['street_number'] and row['shipping_street_number'] and catalog_row['street_number'] == row['shipping_street_number']:
-        shipping_street_number_match = 1
+    if catalog_row['street_number'] == row['shipping_street_number'] and catalog_row['street_number'] == row['shipping_street_number']:
+        shipping_street_number_match = 100
     else:
         shipping_street_number_match = 0
     
@@ -143,9 +143,25 @@ def match_columns(row, catalog_row, name_threshold=10, address_threshold=60):
     
     return name_match_result, billing_address_match_result, shipping_address_match_result, billing_street_number_match, shipping_street_number_match
 
-def main():
-    st.title("Heaven v1")
 
+column_data = {
+    
+    "Column Name": ["address", "mp_add2", "city", "state", "name"],
+    "Description": [
+        "Their main address",
+        "Optional! Secondary address. Some catalogs have a different column for apartment number or unit for example",
+        "City name",
+        "State name",
+        "Customer full name"
+    ],
+}
+column_df = pd.DataFrame(column_data)
+
+def main():
+    st.title("Heaven 2.0")
+    st.subheader("Catalog Column Names")
+    st.write("Below are the column names the code expects to see. The secondary address column (mp_add2) is there in some catalogs but not others, hence the code will work with or without it. Capitalisation doesn't matter! Any other column you want can be included and won't cause any issues.")
+    st.table(column_df)
     # Upload orders CSV file
     orders_file = st.file_uploader("Upload your Orders CSV file", type="csv")
 
@@ -232,10 +248,23 @@ def main():
 
             # Combine all cleaned chunks into the final DataFrame
             orders_df = pd.concat(cleaned_chunks, ignore_index=True)
-
+            columns_to_keep = [
+                'Name', 'billing_name', 'billing_address1', 'billing_zip',
+                'shipping_name', 'shipping_address1', 'shipping_zip',
+                'discount_code', 'billing_street_number', 'billing_street_name',
+                'shipping_street_number', 'shipping_street_name', 'Total'
+            ]
+            
+            # After cleaning, filter the DataFrame to include only these columns
+            orders_df = orders_df[columns_to_keep]
             st.session_state['orders_df'] = orders_df
             st.success("Orders file has been cleaned successfully!")
+            st.write(f"Number orders: {len(orders_df)}")
+            if len(orders_df) == 0:
+                st.warning("No orders found.")
+            
 
+        
         if st.button("Clean Catalog"):
             try:
                 catalog_df = pd.read_excel(catalog_file, engine='openpyxl')
@@ -244,7 +273,20 @@ def main():
                 return
 
             # Clean catalog_df
-            catalog_df.rename(columns={'Name': 'name'}, inplace=True)
+            catalog_df.columns = catalog_df.columns.str.lower()
+            required_columns = {"name", "address", "zip"}
+
+            # Check if all required columns are present in catalog_df
+            missing_columns = required_columns - set(catalog_df.columns)
+           
+            if missing_columns:
+                st.error(f"The following required columns are missing from the catalog file: {', '.join(missing_columns)}")
+            else:
+                st.write("")
+
+
+
+            
 
             # Initialize progress bar
             progress_bar = st.progress(0)
@@ -258,6 +300,8 @@ def main():
                 catalog_chunk = catalog_df.iloc[start_idx:end_idx]
 
                 # Preprocess columns
+                
+                catalog_chunk['zip'] = catalog_chunk['zip'].apply(clean_zipcode)
                 catalog_chunk['zip'] = catalog_chunk['zip'].astype(str).apply(preprocess_zipcode)
                 catalog_chunk['name'] = catalog_chunk['name'].apply(preprocess_text)
                 catalog_chunk['address'] = catalog_chunk['address'].apply(preprocess_text)
@@ -274,8 +318,8 @@ def main():
             catalog_df[['street_number', 'street_name']] = catalog_df['address'].apply(lambda x: pd.Series(split_address(x)))    
             st.session_state['catalog_df'] = catalog_df
             st.success("Catalog file has been cleaned successfully!")
-          
             
+        
             
             
             
@@ -297,51 +341,7 @@ def main():
             
             
         
-            
-        if st.session_state.get('orders_df') is not None:
-            st.subheader("Filter Orders by Date Range")
-
-            # Display date input widgets
-            start_date = pd.to_datetime(st.date_input("Start Date", value=datetime(2023, 1, 1).date())).date()
-            end_date = pd.to_datetime(st.date_input("End Date", value=datetime(2023, 12, 31).date())).date()
-
-            if st.button("Confirm Date Range"):
-                # Retrieve orders_df from session state
-                orders_df = st.session_state['orders_df']
-
-                # Check if 'Created at' column exists
-                if 'Created at' not in orders_df.columns:
-                    st.error("'Created at' column not found in DataFrame.")
-                    st.stop()
-
-                
-                # Convert 'Created at' column to datetime, keeping only the date part
-
-                orders_df['Created at'] = orders_df['Created at'].astype(str)
-
-                orders_df['Created at'] = orders_df['Created at'].str[:10]
-
-                orders_df['Created at'] = pd.to_datetime(orders_df['Created at'], errors='coerce', infer_datetime_format=True).dt.date
-
-                
-                
-
-                # Filter orders based on the selected date range
-                
-                filtered_orders_df = orders_df[(orders_df['Created at'] >= start_date) & (orders_df['Created at'] <= end_date)]
-                # Drop duplicates based on 'Name'
-                filtered_orders_df = filtered_orders_df.drop_duplicates(subset='Name')
-
-                # Update session state with filtered DataFrame
-                st.session_state['orders_df'] = filtered_orders_df
-
-                # Display the result
-                st.write(f"Number of rows in the filtered orders DataFrame: {len(filtered_orders_df)}")
-                if len(filtered_orders_df) == 0:
-                    st.warning("No orders found for the selected date range.")
-
-
-
+         
 
 
 
@@ -378,49 +378,43 @@ def main():
                 catalog_df = st.session_state['catalog_df']
 
                 # Initialize match columns and columns to store TT1 and TT2 in catalog_df
-                catalog_df['name_match'] = 0
-                catalog_df['billing_address_match'] = 0
-                catalog_df['shipping_address_match'] = 0
-                catalog_df['street_number_match'] = 0
-                catalog_df['shipping_street_number_match'] = 0
-                catalog_df['Name'] = None
-                catalog_df['discount_code'] = None
-                catalog_df['billing_name'] = None
-                catalog_df['billing_address1'] = None
-                catalog_df['shipping_name'] = None
-                catalog_df['shipping_address1'] = None
-
-                new_catalog_df = pd.DataFrame(columns=catalog_df.columns)  # Initialize a new DataFrame to store expanded catalog rows
-
+                
+                matches = []
                 num_rows = len(catalog_df)
+                
                 progress_placeholder = st.empty()
 
+                
+                zip_codes_in_orders = orders_df['billing_zip'].unique().tolist() + orders_df['shipping_zip'].unique().tolist()
+                zip_codes_in_orders = list(set(zip_codes_in_orders))  # Remove duplicates
+                catalog_df = catalog_df[catalog_df['zip'].isin(zip_codes_in_orders)]
+                
+                update_interval = 1
                 for index, catalog_row in catalog_df.iterrows():
                     match_count = 0
                     removed_rows = pd.DataFrame()
-
+                
                     while match_count < 5:
                         filtered_orders = orders_df[
                             ((orders_df['billing_zip'] == catalog_row['zip']) | (orders_df['shipping_zip'] == catalog_row['zip']))
                         ]
-
+                        
                         if filtered_orders.empty:
                             break
 
-                        best_name_match = 0
-                        best_billing_address_match = 0
-                        best_shipping_address_match = 0
-                        best_billing_street_number_match = 0
-                        best_shipping_street_number_match = 0
+                        best_name_match = best_billing_address_match = best_shipping_address_match = 0
+                        best_billing_street_number_match = best_shipping_street_number_match = 0
                         best_row_data = None
-
+                        
                         for _, row in filtered_orders.iterrows():
                             name_match, billing_address_match, shipping_address_match, billing_street_number_match, shipping_street_number_match = match_columns(row, catalog_row)
 
-                            if (name_match > best_name_match or billing_address_match > best_billing_address_match or 
-                                shipping_address_match > best_shipping_address_match or billing_street_number_match == 1 or 
-                                shipping_street_number_match == 1):
-
+                            if (name_match > best_name_match or 
+                                billing_address_match > best_billing_address_match or 
+                                shipping_address_match > best_shipping_address_match or 
+                                billing_street_number_match == 100 or 
+                                shipping_street_number_match == 100):
+                                
                                 best_name_match = name_match
                                 best_billing_address_match = billing_address_match
                                 best_shipping_address_match = shipping_address_match
@@ -429,61 +423,55 @@ def main():
                                 best_row_data = row
 
                         if best_row_data is not None:
-                            catalog_df.loc[index, 'name_match'] = best_name_match
-                            catalog_df.loc[index, 'billing_address_match'] = best_billing_address_match
-                            catalog_df.loc[index, 'shipping_address_match'] = best_shipping_address_match
-                            catalog_df.loc[index, 'street_number_match'] = best_billing_street_number_match
-                            catalog_df.loc[index, 'shipping_street_number_match'] = best_shipping_street_number_match
-
-                            catalog_df.loc[index, 'Name'] = best_row_data['Name']
-                            catalog_df.loc[index, 'discount_code'] = best_row_data['discount_code']
-                            catalog_df.loc[index, 'billing_name'] = best_row_data['billing_name']
-                            catalog_df.loc[index, 'billing_address1'] = best_row_data['billing_address1']
-                            catalog_df.loc[index, 'shipping_name'] = best_row_data['shipping_name']
-                            catalog_df.loc[index, 'shipping_address1'] = best_row_data['shipping_address1']
-
+                            # Store the results directly in the catalog dataframe (this eliminates repeated `loc` calls)
+                            matches.append({
+                                'name_match': best_name_match,
+                                'billing_address_match': best_billing_address_match,
+                                'shipping_address_match': best_shipping_address_match,
+                                'street_number_match': best_billing_street_number_match,
+                                'shipping_street_number_match': best_shipping_street_number_match,
+                                'catalog_index': index,
+                                'Name': best_row_data['Name']
+                            })
+                        
                             match_count += 1
 
-                            new_row = catalog_row.copy()
-                            new_row['name_match'] = best_name_match
-                            new_row['billing_address_match'] = best_billing_address_match
-                            new_row['shipping_address_match'] = best_shipping_address_match
-                            new_row['street_number_match'] = best_billing_street_number_match
-                            new_row['shipping_street_number_match'] = best_shipping_street_number_match
-                            new_row['Name'] = best_row_data['Name']
-                            new_row['discount_code'] = best_row_data['discount_code']
-                            new_row['billing_name'] = best_row_data['billing_name']
-                            new_row['billing_address1'] = best_row_data['billing_address1']
-                            new_row['shipping_name'] = best_row_data['shipping_name']
-                            new_row['shipping_address1'] = best_row_data['shipping_address1']
-
-                            new_catalog_df = pd.concat([new_catalog_df, pd.DataFrame([new_row])], ignore_index=True)
-
-                            matched_name = best_row_data['Name']
-                            removed_rows = pd.concat([removed_rows, orders_df[orders_df['Name'] == matched_name]])
-                            orders_df = orders_df[orders_df['Name'] != matched_name]
+                            
+                            
+                            
+                            removed_rows = pd.concat([removed_rows, orders_df[orders_df['Name'] == best_row_data['Name']]])
+                            orders_df = orders_df[orders_df['Name'] != best_row_data['Name']]
+                            
+                            
+                        
                         else:
                             break
 
                     orders_df = pd.concat([orders_df, removed_rows], ignore_index=True)
-                    progress_percentage = (index + 1) / num_rows * 100
-                    progress_placeholder.write(f"Progress: {progress_percentage:.2f}%")
+                    
+                    if index % update_interval == 0:  # Update progress every 1000 rows
+                        progress_percentage = (index + 1) / num_rows * 100
+                        progress_placeholder.write(f"Progress: {progress_percentage:.2f}%")
 
-                catalog_df = pd.concat([catalog_df, new_catalog_df], ignore_index=True)
+                matches_df = pd.DataFrame(matches)
+                matches_df = matches_df.merge(catalog_df, left_on='catalog_index', right_index=True, how='left')
+                matches_df = matches_df.merge(
+                    orders_df[['Name', 'discount_code', 'billing_name', 'billing_address1', 'shipping_name', 'shipping_address1']],
+                    on='Name', 
+                    how='left'
+                )
+                st.session_state['matches_df'] = matches_df
+                catalog_df = matches_df
                 st.session_state['catalog_df'] = catalog_df
                 st.success("Matching process completed successfully!")
-                catalog_to_download = catalog_df
-                csv = catalog_to_download.to_csv(index=False)
-                b64 = base64.b64encode(csv.encode()).decode()
-                href = f'<a href="data:file/csv;base64,{b64}" download="catalog_matched.csv">Download matched catalog DataFrame</a>'
-                st.markdown(href, unsafe_allow_html=True)
+                
             
             
             
             
             
             
-            
+           
             
             
             
@@ -500,9 +488,20 @@ def main():
             if 'catalog_df' in st.session_state:
                 # Retrieve the cleaned catalog_df from session state
                 catalog_df = st.session_state.catalog_df
+                
+                # Apply transformations and calculations to catalog_df after matching MP_ADD2
+                if 'mp_add2' in catalog_df.columns:
+                    # Apply transformations and calculations involving 'MP_ADD2'
+                    catalog_df['mp_add2'] = catalog_df['mp_add2'].apply(preprocess_text)
+                    catalog_df['mp_add2'] = catalog_df['mp_add2'].apply(remove_punctuation)
+                    catalog_df['mp_add2'] = catalog_df['mp_add2'].apply(apply_substitutions)
+                    catalog_df['mp_add2'] = catalog_df['mp_add2'].apply(preprocess_text)
+        
+                    catalog_df.loc[:, 'TEST1'] = catalog_df['name'] + ' ' + catalog_df['address'] + ' ' + catalog_df['mp_add2']
+                else:
+                    # If 'MP_ADD2' doesn't exist, create 'TEST1' without it
+                    catalog_df.loc[:, 'TEST1'] = catalog_df['name'] + ' ' + catalog_df['address']
 
-                # Apply transformations and calculations to catalog_df after matching
-                catalog_df.loc[:, 'TEST1'] = catalog_df['name'] + ' ' + catalog_df['address']
                 catalog_df.loc[:, 'TEST2'] = catalog_df['billing_name'] + ' ' + catalog_df['billing_address1']
                 catalog_df.loc[:, 'TEST3'] = catalog_df['shipping_name'] + ' ' + catalog_df['shipping_address1']
 
@@ -511,8 +510,8 @@ def main():
                 catalog_df.loc[:, 'score1'] = catalog_df.apply(lambda row: fuzz.token_sort_ratio(row['TEST1'], row['TEST2']), axis=1)
                 catalog_df.loc[:, 'score2'] = catalog_df.apply(lambda row: fuzz.token_sort_ratio(row['TEST1'], row['TEST3']), axis=1)
 
-                catalog_df.loc[:, 'shipping_street_number_match'] = catalog_df['shipping_street_number_match'] * 100
-                catalog_df.loc[:, 'street_number_match'] = catalog_df['street_number_match'] * 100
+                catalog_df.loc[:, 'shipping_street_number_match'] = catalog_df['shipping_street_number_match'] 
+                catalog_df.loc[:, 'street_number_match'] = catalog_df['street_number_match'] 
 
                 catalog_df['total_score'] = (
                     catalog_df['name_match'] +
@@ -535,25 +534,25 @@ def main():
                     ((catalog_df['score1'] >= 70) & (catalog_df['score1'] < 80)) |
                     ((catalog_df['score2'] >= 70) & (catalog_df['score2'] < 80)) |
                     ((catalog_df['total_score'] > 500) & (catalog_df['total_score'] <= 600)) |
-                    ((catalog_df['name_match'] + catalog_df['shipping_address_match'] + catalog_df['shipping_street_number_match']) > 230) &
-                    ((catalog_df['name_match'] + catalog_df['shipping_address_match'] + catalog_df['shipping_street_number_match']) <= 260) |
-                    ((catalog_df['name_match'] + catalog_df['billing_address_match'] + catalog_df['billing_address_match']) > 230) &
-                    ((catalog_df['name_match'] + catalog_df['billing_address_match'] + catalog_df['billing_address_match']) <= 260),
+                    (((catalog_df['name_match'] + catalog_df['shipping_address_match'] + catalog_df['shipping_street_number_match']) > 230) &
+                    ((catalog_df['name_match'] + catalog_df['shipping_address_match'] + catalog_df['shipping_street_number_match']) <= 260)) |
+                    (((catalog_df['name_match'] + catalog_df['billing_address_match'] + catalog_df['billing_address_match']) > 230) &
+                    ((catalog_df['name_match'] + catalog_df['billing_address_match'] + catalog_df['billing_address_match']) <= 260)),
                     'match_status'
                 ] = 'Possible Match'
-                
                 
                 catalog_df.loc[
                     (catalog_df['score1'] >= 80) | 
                     (catalog_df['score2'] >= 80) |
                     (catalog_df['total_score'] > 600) |
                     ((catalog_df['shipping_address_match'] + catalog_df['shipping_street_number_match']) > 193) |
-                    ((catalog_df['billing_address_match'] + catalog_df['billing_address_match']) > 193),
+                    ((catalog_df['billing_address_match'] + catalog_df['street_number_match']) > 193),
                     'match_status'
                 ] = 'Likely Match'
                 
                 
                 result_df = catalog_df.loc[catalog_df.groupby('Name')['total_score'].idxmax()]
+                result_df = result_df.sort_values(by='total_score', ascending=False)
                 # Provide download link for the final matched catalog DataFrame
                 catalog_to_download = result_df
                 csv = catalog_to_download.to_csv(index=False)
